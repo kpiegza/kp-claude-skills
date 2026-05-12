@@ -1,0 +1,11 @@
+{
+  "name": "kp-claude-skills",
+  "owner": { "name": "Konrad Piegza" },
+  "plugins": [
+    {
+      "name": "kp",
+      "source": "./",
+      "description": "Osobiste skille"
+    }
+  ]
+}
