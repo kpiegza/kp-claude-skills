@@ -1,0 +1,16 @@
+# Korpus prac uzytkownika - dane prywatne, nigdy nie commitujemy
+corpus/
+
+# Wygenerowany profil stylu - zawiera cytaty z prac, dane prywatne
+profile/writing-style.md
+profile/writing-style-*.md
+
+# Robocze artefakty z generowania DOCX
+*.docx
+!profile/university-requirements/*-template.docx
+
+# Lokalne workspace skill-creatora
+*-workspace/
+
+# macOS
+.DS_Store
