@@ -16,7 +16,7 @@ Wspieraja codzienny workflow git + GitHub: branche, PR-y, code review, deploymen
 - **`kp:create-pull-request`** — utworzenie PR z ustrukturyzowanym opisem (Task / Context / Scope / Changes / Notes).
 - **`kp:cleanup-merged-branches`** — bezpieczne usuwanie lokalnych i zdalnych branchy zmergowanych do main (z podwojnym checkiem git + GitHub PR, ochrona chronionych nazw, brak force delete bez zgody).
 - **`kp:create-deployment-post`** — generuje wpis na kanal deployment Teams z pull requesta (`[scope] opis po polsku`), kopiuje do schowka.
-- **`kp:code-review`** — interaktywny code review PR: konfigurowalny poziom surowosci, severity filter (krytyczne / +srednie / wszystko), wybor czy postowac inline komentarze na GitHub czy poprawiac kod lokalnie. Spawnuje rownolegla analize wieloagentowa (na wzor `/code-review:code-review`) i prowadzi krok-po-kroku przez znaleziska.
+- **`kp:code-review`** — code review PR w odniesieniu do zadania z Jiry (task, story z ustaleniami w komentarzach, sasiednie subtaski). Skrypt `context_pack.py` mechanicznie zbiera kontekst spoza diffa (wywolania, rodzenstwo plikow, sygnatury, wersje bibliotek), analityk na Fable spisuje kontrakt zadania, trzech recenzentow na Sonnecie szuka problemow (po commicie, poza diffem, w obietnicach opisu), a sedzia w petli wymaga dowodow i kuruje wynik. Wynik to jedno podsumowanie z checkboxami (ten PR / follow-up / nice-to-have / Not covered / Jira) zamiast komentarzy inline. Tryby: cudzy PR (draft na GitHub, re-review, approve) i wlasny PR (self-review z poprawkami lokalnie). Jira przez `jira.py` z zainstalowanego pluginu (wymaga VPN); bez Jiry kontraktem jest opis PR.
 
 ### Skille do pisania prac
 
