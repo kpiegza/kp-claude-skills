@@ -1,7 +1,7 @@
 ---
 name: create-deployment-post
 description: Wpis o wdrozeniu na kanal Teams Monetisation / Deployments na podstawie pull requesta (z aktualnego brancha, numeru albo URL PR). Temat `[scope] krotki opis po polsku`, tresc = link do PR. Buduje na skillu monetisation-core:rasp-teams - czyta kanaly Pull Request and Code Review oraz Deployments, wzoruje sie na wczesniejszych wpisach (gdy PR byl juz ogloszony na PR&CR, przejmuje jego temat), pokazuje podglad i publikuje dopiero po zgodzie uzytkownika; bez Teams kopiuje temat do schowka. Uzyj gdy uzytkownik mowi: "wpis na teams", "wpis deploymentowy", "tekst na teams", "wygeneruj wpis na deployment", "co wdrazam", "wpis na kanal deployment", "deployment message", "post na teams", "message na deployment kanal", "co napisac na teams", "oglos wdrozenie", "wrzuc na deploymenty", "napisz na deployments", "opublikuj wdrozenie na teams", "wyslij wpis o wdrozeniu", "post deploymentowy", "wdrozone, daj znac na teams".
-model: haiku
+model: sonnet
 effort: medium
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py prepare:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py preview:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py clipboard:*), AskUserQuestion
 ---
