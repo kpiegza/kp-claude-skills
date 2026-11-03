@@ -1,180 +1,51 @@
 ---
 name: create-deployment-post
-description: Generuje krotki wpis na kanal deployment w Teams na podstawie pull requesta (z aktualnego brancha lub podanego numeru PR). Format `[scope] krotki opis po polsku, co wdrazamy`. Automatycznie wykrywa scope (nazwa repo lub aplikacji w monorepo), tlumaczy tytul PR z angielskiego na polski i kopiuje wynik do schowka przez pbcopy. Skill **nigdy** nie publikuje samodzielnie — tylko generuje tekst, user wkleja do Teams recznie. Uzyj gdy uzytkownik mowi: "wpis na teams", "wpis deploymentowy", "tekst na teams", "wygeneruj wpis na deployment", "co wdrazam", "wpis na kanal deployment", "deployment message", "post na teams", "message na deployment kanal", "co napisac na teams".
-allowed-tools: Bash(gh:*), Bash(git:*), Bash(pbcopy), Bash(echo:*), AskUserQuestion, Read
+description: Wpis o wdrozeniu na kanal Teams Monetisation / Deployments na podstawie pull requesta (z aktualnego brancha, numeru albo URL PR). Temat `[scope] krotki opis po polsku`, tresc = link do PR. Buduje na skillu monetisation-core:rasp-teams - czyta kanaly Pull Request and Code Review oraz Deployments, wzoruje sie na wczesniejszych wpisach (gdy PR byl juz ogloszony na PR&CR, przejmuje jego temat), pokazuje podglad i publikuje dopiero po zgodzie uzytkownika; bez Teams kopiuje temat do schowka. Uzyj gdy uzytkownik mowi: "wpis na teams", "wpis deploymentowy", "tekst na teams", "wygeneruj wpis na deployment", "co wdrazam", "wpis na kanal deployment", "deployment message", "post na teams", "message na deployment kanal", "co napisac na teams", "oglos wdrozenie", "wrzuc na deploymenty", "napisz na deployments", "opublikuj wdrozenie na teams", "wyslij wpis o wdrozeniu", "post deploymentowy", "wdrozone, daj znac na teams".
+model: haiku
+effort: medium
+allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py prepare:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py preview:*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py clipboard:*), AskUserQuestion
 ---
 
 # Create Deployment Post
 
-Generujesz **jedna linie** do wklejenia na kanal deployment w Teams. Format dominujacy w przykladach:
+Zakladasz watek na kanale Teams **Monetisation / Deployments**: temat `[scope] opis`, tresc = link do PR. Z uzytkownikiem rozmawiasz po polsku. Jedyne narzedzia: skrypt `python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py` i `AskUserQuestion`. Nie uzywasz gh, git, pbcopy ani teams.py - wszystko robi skrypt.
 
-```
-[scope] krotki opis po polsku, co wdrazamy
-```
+## Dane (zebrane przed startem)
 
-Skill **nigdy** sam nie pisze do Teams API. Generuje tekst, kopiuje do schowka, user wkleja recznie.
+!`python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py prepare '$ARGUMENTS'`
 
-## Wykrywanie intencji z wiadomosci
+Blok powyzej: PR, kandydaci na scope, wpis z PR&CR (jesli jest), moje wczesniejsze wpisy jako wzorce, gotowa komenda `preview`. Jesli zamiast bloku widzisz sama komende, blok dotyczy innego PR niz chcial uzytkownik albo zawiera `BLAD`, uruchom `python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py prepare <numer|URL>` z wlasciwym PR i pracuj na nowym bloku. Bez PR nie zgaduj: zapytaj o numer albo URL i zakoncz.
 
-Sprawdz co uzytkownik podal:
-- **Numer PR**: wzorce `#1234`, `PR 1234`, `pull request 1234` -> uzyj jako input.
-- **Nazwa brancha**: jesli explicit podana -> uzyj.
-- **Brak wskazania**: aktualny branch (`git branch --show-current`).
+## Krok 1: temat
 
-## Krok 1: Pobranie PR
+1. **Jest wpis PR&CR** dla tego PR -> temat = jego temat, doslownie, razem z polskimi znakami i tagami; reguly z punktu 2 go nie dotycza. Zmien go tylko, gdy uwagi uzytkownika albo opis PR mowia, ze wdrozenie rozni sie od PR (np. "tylko INT", numer wersji, czesc zmian).
+2. **Brak wpisu** -> uloz temat; "Moje wpisy" to wzor stylu opisu, nie zrodlo scope:
+   - `[scope] Opis`. Scope = pierwszy kandydat z bloku. Nazwa repo tylko gdy zmiana dotyczy calego repo (CI, obraz bazowy, zaleznosci) albo kilku aplikacji naraz. Drugi tag `[komponent]` tylko gdy moje wpisy dla tego repo tak robia.
+   - Opis **po polsku z polskimi znakami** (ą ę ł ś ż ...), 40-100 znakow, wielka litera, rzeczownik odczasownikowy albo fraza: "Wysyłka X do Y po Z", "Zmiana X na Y w Z", "Poprawka Z", "Podbicie X -> Y". Bez "wdrażam", bez kropki na koncu, bez prefiksu feat/fix.
+   - Konkrety z PR (nazwy kolumn, wersje, CVE, klienci, nazwy dagow) zostaja doslownie. Nie powtarzaj scope w opisie. Nie dopisuj niczego, czego nie ma w tytule i opisie PR.
+3. Tresc: link do PR dodaje skrypt. `--note "<linia>"` tylko gdy uzytkownik o to prosi (wpis PR&CR z dodatkowym akapitem nie jest powodem).
 
-**Jezeli numer PR podany:**
-```bash
-gh pr view $PR_NUMBER --json title,body,headRefName,baseRefName,url,number,state
-```
-
-**Jezeli current branch:**
-```bash
-gh pr list --head "$(git branch --show-current)" --json number,title,body,headRefName,baseRefName,url,state --limit 1
-```
-
-Jezeli PR nie znaleziono:
-- Zatrzymaj sie.
-- Poinformuj uzytkownika ze nie ma otwartego ani zmergowanego PR z tego brancha.
-- Zapytaj o numer PR przez `AskUserQuestion`.
-
-## Krok 2: Wykrycie scope (zawartosc `[...]`)
-
-Scope to nazwa repo lub aplikacji ktora wdrazasz. Sproboj w tej kolejnosci:
-
-### Zrodlo A: monorepo — aplikacja na podstawie zmienianych plikow
-
-Najpierw sprawdz czy to monorepo (RASP ma `adplatform`, `adplatform2`). Pobierz liste zmienionych plikow:
+## Krok 2: podglad i zgoda
 
 ```bash
-gh pr diff $PR_NUMBER --name-only | head -30
+python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py preview --pr <URL PR> --subject "<temat>" [--note "<linia>"]
 ```
 
-Mapowanie sciezek na scope (typowe dla RASP):
+W odpowiedzi pokaz doslownie temat i tresc z podgladu (sekcja "Treść (sformatowana)"), jedna linie o zrodle tematu (z PR&CR / nowy) i kazde `UWAGA` z bloku danych (np. PR byl juz na Deployments). Gdy opis PR ma kroki wdrozeniowe (okno wdrozenia, kolejnosc, cos do zrobienia po deployu), przypomnij je jednym zdaniem - do wpisu ich nie dodajesz. Potem `AskUserQuestion` z opcjami:
+- **Wyslij** -> Krok 3.
+- **Popraw** -> nowy temat albo wskazowka z odpowiedzi, powtorz Krok 2.
+- **Tylko schowek** -> `python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py clipboard --subject "<temat>"`, koniec.
+- **Anuluj** -> koniec, nic nie wysylasz.
 
-| Sciezka | Scope |
-|---------|-------|
-| `src/javascript/adp-api/` | `adp-api` |
-| `src/javascript/adp-panel/` | `adp-panel` |
-| `src/frontend/das-panel/` | `das-panel` |
-| `src/golang/cmd/das-bidder/` | `das-bidder` |
-| `src/javascript/adp-ad-template/` | `adp-ad-template` |
-| `src/javascript/das-sese/` | `das-sese` |
-| `src/javascript/oads-panel/` | `oads-panel` |
-| `src/javascript/oads-core-api/` | `oads-core-api` |
-| `src/javascript/ad-offer-provider/` | `ad-offer-provider` |
-| `src/javascript/gdpr-popup/` | `gdpr-popup` |
-| `projects/adp_rds/` | `adp-rds` |
-| `projects/adp_activity/` | `adp-activity` |
-| `projects/karuzela/` | `karuzela` |
+Gdy wynik `preview` zaczyna sie od `TEAMS NIEDOSTEPNE`: temat jest juz w schowku; przekaz uzytkownikowi powod i instrukcje z wyniku, zakoncz.
 
-Jezeli wiele aplikacji w jednym PR — wybierz **dominujaca** (najwiecej zmienionych plikow). Jezeli niejasne, zapytaj uzytkownika.
+## Krok 3: wysylka
 
-### Zrodlo B: nazwa repo
+Tylko po wyborze **Wyslij**: `python3 ${CLAUDE_SKILL_DIR}/scripts/deploy_post.py confirm <ID>` (ID z podgladu). Celowo nie ma jej w `allowed-tools` skilla (moze pojawic sie prompt uprawnien); jedyna droga do wysylki to wybor **Wyslij**. Potem jedna linia: co i gdzie wyslano. `WYNIK NIEZNANY` -> nie wysylaj drugi raz, popros uzytkownika o sprawdzenie kanalu.
 
-Jezeli nie monorepo lub nie pasuje mapowanie:
+## Zasady
 
-```bash
-gh repo view --json name --jq .name
-```
-
-To bedzie scope (np. `crm-salesforce`, `unlayer-templates`, `adp-events-api`).
-
-### Zrodlo C: fallback — zapytaj uzytkownika
-
-Jezeli zadne ze zrodel nie da jasnego scope (rzadkie), pokaz uzytkownikowi liste plikow i zapytaj jaka aplikacja/repo to jest.
-
-## Krok 3: Generowanie opisu po polsku
-
-Opis = **jedna linijka, po polsku, max ~80 znakow**. W stylu istniejacych wpisow.
-
-### Style observed w przykladach
-
-| Wzorzec | Przyklad |
-|---------|----------|
-| Rzeczownik odczasownikowy | `Ujednolicenie opisu w szablonach sponsoringu` |
-| Rzeczownik odczasownikowy | `Naprawa anonimizacji dla eventow typu request` |
-| Czasownik 1. os. | `Wdrazam mozliwosc ustawienia completed na BIP przez mia` |
-| Czasownik 1. os. | `Wdrazam poprawke do wysylania eventow do Piano na Lamodzie` |
-| Konkret z metryka | `zmiana konfiguracji requests 1 vcpu -> 2 vcpu` |
-| Krotka fraza | `Faktury z SF` |
-| Krotka fraza | `Downscale RMQ` |
-
-**Preferuj rzeczownik odczasownikowy** (`Dodanie X`, `Naprawa Y`, `Zmiana Z`, `Ujednolicenie W`) — najczestszy wzorzec. Czasownik 1. osoby (`Wdrazam X`) tez OK, ale uzywaj tylko gdy w PR body jest taki ton.
-
-### Zrodla opisu
-
-W kolejnosci pierwszenstwa:
-
-1. **PR body — sekcja `## Task` lub `## Context`** — jezeli ma polski opis (rzadkie, bo skill `create-pull-request` wymusza angielski), uzyj.
-2. **Jira ticket** — jezeli task ID jest w nazwie brancha (np. `feature/MONBACK-1234-...`), pobierz polski tytul:
-```bash
-# Sproboj przez gh (jezeli jest issue) — czasem zwraca nic
-gh api "search/issues?q=MONBACK-1234" --jq '.items[0].title' 2>/dev/null
-
-# Jezeli jest dostepny skill monetisation-core:jira-task — uzyj go zeby pobrac tytul po polsku.
-# Inaczej: zapytaj uzytkownika o polski tytul.
-```
-3. **Tytul PR** (angielski) — przetlumacz na polski, skroc do esencji. Pamietaj: tytul `create-pull-request` ma format `feat(scope): description` — opis jest po `:` i jest po angielsku. Wez ten opis, przetlumacz.
-
-### Reguly skracania
-
-- Skroc rzeczownik scope w opisie (nie powtarzaj scope: `[adp-api] Dodanie nowego filtra`, nie `[adp-api] Dodanie nowego filtra w adp-api`).
-- Trzymaj **konkret**: nazwy ficzerow, metryki, nazwy customer'ow gdy maja znaczenie ("dla Lamoda", "dla Onet").
-- Unikaj jargonu z code review ("DRY", "refactor for testability") — to nie idzie na kanal deployment.
-
-## Krok 4: Specjalne przypadki formatu
-
-Wiekszosc wpisow ma prosty format `[scope] opis`. Niektore repo maja konwencje:
-
-- **`das-sese`** — czesto z dodatkiem `- wdrazam -`: `[das-sese] - wdrazam - Campaign offsete`. Uzyj tego wzorca **tylko jezeli** scope to das-sese **i** opis jest naturalnym uzupelnieniem "wdrazam X" (czyli rzeczownik/krotka fraza). Inaczej standard.
-- **`MIA`** — uppercase scope. Wez `[MIA]` jezeli scope wykryty to MIA.
-- **Nested path** (rzadko): `[adp-ad-template/adt-ad_template_onet]` — uzyj jezeli widzisz PR ktory dotyka tylko jednego sub-template w adp-ad-template (sciezka `src/javascript/adp-ad-template/templates/adt-ad_template_onet/`).
-
-Te wzorce sa **opcjonalne**. Default = `[scope] opis`.
-
-## Krok 5: Pokazanie propozycji uzytkownikowi
-
-Pokaz propozycje **dokladnie** jak ma wygladac na Teams:
-
-```
-Proponowany wpis:
-
-[adp-api] Wdrazam filtrowanie CampaignSummaryFilterInput po subAccountIds
-
-Akceptujesz?
-```
-
-Uzyj `AskUserQuestion`:
-- **Tak, kopiuj do schowka** — wykonaj Krok 6.
-- **Edytuj** — zapytaj o poprawiony tekst (jako single text input lub asked freeform), pokaz znowu (powrot do Kroku 5).
-- **Anuluj** — koniec, nic nie kopiuj.
-
-## Krok 6: Kopiowanie do schowka
-
-```bash
-printf '%s' "$FINAL_TEXT" | pbcopy
-```
-
-Uzyj `printf '%s'` zamiast `echo` zeby nie dolozyc newline'a na koncu (Teams nie potrzebuje).
-
-Potwierdzenie po polsku:
-
-> "Skopiowane do schowka. Wklej (Cmd+V) na kanal deployment Teams."
-
-## Edge cases
-
-- **Brak `gh` / niezalogowany** — zatrzymaj sie, ostrzez ze nie mozna pobrac PR z GitHub, zapytaj uzytkownika o tekst manualnie lub o numer PR + tytul.
-- **PR nie istnieje (zly numer)** — pokaz blad, zapytaj o numer ponownie.
-- **Brak `pbcopy` (nie macOS)** — pokaz finalny tekst w czacie z instrukcja "skopiuj recznie", nie probuj `xclip`/innych.
-- **Monorepo z wieloma aplikacjami w PR** — zapytaj ktora aplikacja jest dominujaca dla wpisu. Albo wybierz po liczbie zmienionych plikow (najwiecej = dominujaca).
-- **PR z draft state** — ostrzez ze PR jest draft (jeszcze nie do mergowania), zapytaj czy na pewno wpis na deployment.
-- **PR z roznych repo (rzadko)** — niemozliwe, jeden PR = jedno repo. Zignoruj.
-
-## Reguly
-
-- **Krotko**: caly wpis razem z `[scope]` ma byc max ~100 znakow. Im krocej tym lepiej.
-- **Po polsku**: opis zawsze po polsku, niezaleznie ze tytul PR i body sa po angielsku. **Tlumacz**.
-- **Nie wymyslaj funkcjonalnosci**: jezeli nie wiesz co PR robi, zapytaj uzytkownika. Lepiej zapytac niz wygenerowac wpis ktory nie odpowiada zmianom.
-- **Skill NIGDY nie publikuje samodzielnie do Teams** — tylko generuje tekst + kopiuje do schowka. Wklejenie robi user.
-- **Nie modyfikuje PR**: zero `gh pr edit`, zero zmian w repo. Read-only operacja.
+- Nic nie idzie do Teams bez zgody na pokazany podglad: wybor **Wyslij** albo wprost napisane "wyslij". "ok", "dobra", "moze byc" to nie zgoda.
+- Kazda zmiana tematu = nowy `preview` i nowe pytanie.
+- Jeden PR = jeden watek. Wpisu na kanale nie da sie poprawic po wyslaniu.
+- Nie modyfikujesz PR ani repo.
