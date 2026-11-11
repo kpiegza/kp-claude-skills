@@ -4,7 +4,7 @@ Osobiste skille Claude Code, zapakowane jako lokalny plugin `kp`.
 
 ## Co tu jest
 
-Dziewiec skilli (`skills/`) — wszystkie auto-aktywuja sie na podstawie kontekstu rozmowy. Podzielone na dwie grupy: **programowanie** i **pisanie prac**.
+Dziesiec skilli (`skills/`) — wszystkie auto-aktywuja sie na podstawie kontekstu rozmowy. Podzielone na dwie grupy: **programowanie** i **pisanie prac**.
 
 ### Skille deweloperskie
 
@@ -17,6 +17,7 @@ Wspieraja codzienny workflow git + GitHub: branche, PR-y, code review, deploymen
 - **`kp:cleanup-merged-branches`** — bezpieczne usuwanie lokalnych i zdalnych branchy zmergowanych do main (z podwojnym checkiem git + GitHub PR, ochrona chronionych nazw, brak force delete bez zgody).
 - **`kp:create-deployment-post`** — zaklada watek o wdrozeniu na Teams Monetisation / Deployments z pull requesta (temat `[scope] opis po polsku`, tresc = link do PR). Dziala na Sonnecie. Skrypt `deploy_post.py` zbiera dane, zanim model ruszy: PR z GitHuba, kandydatow na scope, wpis z Pull Request and Code Review (jesli PR byl tam ogloszony, temat przechodzi doslownie) i moje ostatnie wpisy z Deployments jako wzor stylu. Publikuje przez `monetisation-core:rasp-teams` (podglad, zgoda, `confirm`); bez Teams kopiuje temat do schowka. Wymaga zainstalowanego `monetisation-core` i `uv`. Na Sonnet przechodzi tylko wywolany jako `/kp:create-deployment-post`; wyzwolony z rozmowy ("wrzuc na deploymenty") dziala na modelu sesji, bo Claude Code stosuje `model:` ze skilla tylko przy wywolaniu przez slash.
 - **`kp:code-review`** — code review PR w odniesieniu do zadania z Jiry (task, story z ustaleniami w komentarzach, sasiednie subtaski). Skrypt `context_pack.py` mechanicznie zbiera kontekst spoza diffa (wywolania, rodzenstwo plikow, sygnatury, wersje bibliotek), analityk na Fable spisuje kontrakt zadania, trzech recenzentow na Sonnecie szuka problemow (po commicie, poza diffem, w obietnicach opisu), a sedzia w petli wymaga dowodow i kuruje wynik. Wynik to jedno podsumowanie z checkboxami (ten PR / follow-up / nice-to-have / Not covered / Jira) zamiast komentarzy inline. Tryby: cudzy PR (draft na GitHub, re-review, approve) i wlasny PR (self-review z poprawkami lokalnie). Jira przez `jira.py` z zainstalowanego pluginu (wymaga VPN); bez Jiry kontraktem jest opis PR.
+- **`kp:knowledge-base`** — prywatna baza krotkich notatek (decyzje, pulapki, wnioski z researchu) w osobnym repo `~/Projekty/agent-knowledge-base`. Zapisuje notatke tylko po akceptacji szkicu, potem commit i push prosto na `main` tego repo. Skrypt `knowledge_base.py` pilnuje struktury (5 pol frontmattera, do 150 slow) i generuje `INDEX.md`; hook pluginu (`hooks/hooks.json`) zapisuje kazdy odczyt notatki do lokalnego `.reads.log`, a `stats` pokazuje, z ktorych notatek agent korzysta. Wymaga sklonowanego repo notatek.
 
 ### Skille do pisania prac
 
@@ -39,7 +40,7 @@ Z poziomu Claude Code:
 /plugin install kp@kp-claude-skills
 ```
 
-Po instalacji i restarcie sesji skille widac jako `kp:sync-main`, `kp:address-review-comments`, `kp:create-branch`, `kp:create-pull-request`, `kp:cleanup-merged-branches`, `kp:create-deployment-post`, `kp:code-review`, `kp:analyze-writing-style`, `kp:write-in-my-style`.
+Po instalacji i restarcie sesji skille widac jako `kp:sync-main`, `kp:address-review-comments`, `kp:create-branch`, `kp:create-pull-request`, `kp:cleanup-merged-branches`, `kp:create-deployment-post`, `kp:code-review`, `kp:knowledge-base`, `kp:analyze-writing-style`, `kp:write-in-my-style`.
 
 ## Aktualizacja
 
@@ -55,6 +56,7 @@ git pull
 
 ```bash
 git clone <repo-url> ~/Projekty/kp-claude-skills
+git clone git@github.com:kpiegza/agent-knowledge-base.git ~/Projekty/agent-knowledge-base
 # w Claude Code:
 /plugin marketplace add ~/Projekty/kp-claude-skills
 /plugin install kp@kp-claude-skills
