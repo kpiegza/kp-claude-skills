@@ -35,12 +35,15 @@ Tylko na polecenie uzytkownika. Kroki:
 
 1. Jesli `git -C ~/Projekty/agent-knowledge-base remote` pokazuje `origin`: `git -C ~/Projekty/agent-knowledge-base pull --rebase --autostash`.
 2. Ustal typ: `decision`, `gotcha` albo `finding`.
-3. Szukaj istniejacej notatki: `grep -i` w `INDEX.md` i w `notes/`, po polskich i angielskich slowach. Jesli jest notatka na ten temat, popraw ja: przepisz cala tresc od nowa (nie dopisuj na koncu) i ustaw `checked` na dzis. Nie tworz drugiej notatki o tym samym.
+3. Szukaj istniejacej notatki: `grep -i` w `INDEX.md` i w `notes/`, po polskich i angielskich slowach. Jesli jest notatka na ten temat, obejrzyj ja przez `grep -n '' <plik>`, nie narzedziem Read (hook liczylby to jako uzycie notatki). Popraw ja: przepisz cala tresc od nowa (nie dopisuj na koncu) i ustaw `checked` na dzis. Nie tworz drugiej notatki o tym samym.
 4. Przeczytaj `${CLAUDE_SKILL_DIR}/templates.md`. Przygotuj szkic (do 150 slow tresci) i pokaz go w czacie razem z nazwa pliku.
 5. Czekaj na akceptacje. Bez niej nic nie zapisuj.
-6. Zapisz plik i uruchom `check`. Przy bledach popraw notatke i uruchom `check` ponownie.
-7. `git -C ~/Projekty/agent-knowledge-base add notes INDEX.md`, potem `git -C ~/Projekty/agent-knowledge-base commit -m "kb: add <slug>"` (albo `kb: update <slug>`, `kb: delete <slug>`). `<slug>` to nazwa pliku bez `.md`. Commit na `main`, bez `Co-Authored-By` i bez innej atrybucji.
-8. Jesli jest `origin`: `git -C ~/Projekty/agent-knowledge-base push origin main`.
+6. Zapisz plik i uruchom `check`.
+   - Bledy w zapisywanej notatce popraw i uruchom `check` ponownie. Jesli poprawka zmienia sens zaakceptowanego szkicu, pokaz go jeszcze raz.
+   - Bledy w innych plikach: nie poprawiaj ich sam. Pokaz je uzytkownikowi, zapytaj, co z nimi zrobic, i do czasu jego decyzji nic nie commituj.
+7. `git -C ~/Projekty/agent-knowledge-base status --short`. Dodaj tylko zapisywana notatke i indeks: `git -C ~/Projekty/agent-knowledge-base add notes/<slug>.md INDEX.md` (przy usuwaniu: `git -C ~/Projekty/agent-knowledge-base rm notes/<slug>.md`, potem `add INDEX.md`). Inne zmiany widoczne w `status` zostaw bez zmian i powiedz o nich uzytkownikowi.
+8. `git -C ~/Projekty/agent-knowledge-base commit -m "kb: add <slug>"` (albo `kb: update <slug>`, `kb: delete <slug>`). `<slug>` to nazwa pliku bez `.md`. Commit na `main`, bez `Co-Authored-By` i bez innej atrybucji.
+9. Jesli jest `origin`: `git -C ~/Projekty/agent-knowledge-base push origin main`.
 
 W tym repo nigdy nie tworz branchy ani pull requestow. Gdy push sie nie uda, powiedz to i zostaw commit lokalnie.
 
@@ -60,9 +63,9 @@ Po zadaniu, z ktorego zostal trwaly wniosek, mozesz dodac najwyzej jedna linie: 
 ## Przeglad ("przeglad kb", "kb lint")
 
 1. Uruchom `lint` i `stats`.
-2. Przy kazdym ERROR i WARN, a takze przy notatce z 0 sesji w ostatnich 90 dniach i `checked` starszym niz 90 dni, zapytaj uzytkownika: potwierdzic, poprawic czy usunac.
+2. Przy kazdym ERROR i WARN, a takze przy notatce z 0 sesji w ostatnich 90 dniach i `checked` starszym niz 90 dni, zapytaj uzytkownika: potwierdzic, poprawic czy usunac. Notatki pokazuj przez `grep -n '' <plik>`, nie narzedziem Read: przeglad nie jest uzyciem notatki.
 3. `checked` podbijaj tylko po realnym sprawdzeniu. Nieaktualne notatki usuwaj zamiast archiwizowac - historia zostaje w gicie.
-4. Na koniec `check`, commit i push jak przy zapisie.
+4. Na koniec `check`, potem commit i push jak przy zapisie (kroki 7-9), z plikami zmienionymi w przegladzie.
 
 ## Twarde reguly
 
