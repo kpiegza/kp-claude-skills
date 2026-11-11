@@ -4,16 +4,19 @@
 Usage:
     python3 knowledge_base.py lint  [--root PATH] [--today YYYY-MM-DD]
     python3 knowledge_base.py check [--root PATH] [--today YYYY-MM-DD]
+    python3 knowledge_base.py stats [--root PATH] [--days 90] [--today YYYY-MM-DD]
+    python3 knowledge_base.py log-read [--root PATH]   # PostToolUse hook, reads JSON from stdin
 """
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 ALLOWED_FIELDS = ("type", "when", "applies", "checked", "proof")
@@ -30,6 +33,8 @@ MAX_BODY_WORDS = 150
 MAX_WHEN = 120
 STALE_DAYS = 180
 DUP_THRESHOLD = 3
+STATS_DAYS = 90
+READS_LOG = ".reads.log"
 FILENAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)+\.md$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -222,23 +227,88 @@ def cmd_check(root: Path, today: date) -> int:
     return 0
 
 
+def log_read(payload: str, root: Path, now: datetime) -> bool:
+    """Append a line to <root>/.reads.log when a hook payload is a Read of a note. Never raises."""
+    try:
+        data = json.loads(payload)
+        file_path = Path(data["tool_input"]["file_path"]).resolve()
+        if file_path.parent != (root / "notes").resolve() or file_path.suffix != ".md":
+            return False
+        fields = [
+            now.isoformat(timespec="seconds"),
+            file_path.stem,
+            str(data.get("session_id") or "?"),
+            str(data.get("cwd") or "?"),
+        ]
+        line = "\t".join(field.replace("\t", " ").replace("\n", " ") for field in fields)
+        with open(root / READS_LOG, "a", encoding="utf-8") as log:
+            log.write(line + "\n")
+        return True
+    except Exception:
+        return False
+
+
+def read_stats(root: Path, today: date, days: int = STATS_DAYS) -> list[tuple[str, int, str]]:
+    """Per note: distinct sessions that read it in the last `days` days (today included)."""
+    sessions: dict[str, set[str]] = {}
+    log = root / READS_LOG
+    if log.is_file():
+        for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
+            parts = line.split("\t")
+            day = _parse_date(parts[0][:10]) if len(parts) >= 3 else None
+            if day is None or day > today or (today - day).days >= days:
+                continue
+            sessions.setdefault(parts[1], set()).add(parts[2])
+    rows = []
+    for path in iter_note_paths(root):
+        try:
+            checked = parse_note(path).meta.get("checked") or "?"
+        except NoteParseError:
+            checked = "?"
+        rows.append((path.stem, len(sessions.get(path.stem, ())), checked))
+    rows.sort(key=lambda row: (-row[1], row[0]))
+    return rows
+
+
+def cmd_stats(root: Path, today: date, days: int) -> int:
+    rows = read_stats(root, today, days)
+    for slug, count, checked in rows:
+        print(f"{count}\t{slug}\t{checked}")
+    unread = sum(1 for _, count, _ in rows if count == 0)
+    print(f"{len(rows)} notes, {unread} with 0 sessions in the last {days} days")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="knowledge_base.py", description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
     for name, help_text in (
         ("lint", "report structural errors and warnings"),
         ("check", "lint, then regenerate INDEX.md when there are no errors"),
+        ("stats", "distinct sessions that read each note recently"),
     ):
         command = commands.add_parser(name, help=help_text)
         command.add_argument("--root", type=Path, default=None, help="knowledge base directory")
         command.add_argument("--today", type=date.fromisoformat, default=None, help="override today (YYYY-MM-DD)")
+        if name == "stats":
+            command.add_argument("--days", type=int, default=STATS_DAYS, help="window in days (default 90)")
+    hook = commands.add_parser("log-read", help="PostToolUse hook: log a Read of a note; always exits 0")
+    hook.add_argument("--root", type=Path, default=None, help="knowledge base directory")
     args = parser.parse_args(argv)
 
     root = args.root or default_root()
+    if args.command == "log-read":
+        try:
+            log_read(sys.stdin.read(), root, datetime.now())
+        except Exception:
+            pass
+        return 0
     if not (root / "notes").is_dir():
         print(f"knowledge base not found: {root}", file=sys.stderr)
         return 2
     today = args.today or date.today()
+    if args.command == "stats":
+        return cmd_stats(root, today, args.days)
     handlers = {"lint": cmd_lint, "check": cmd_check}
     return handlers[args.command](root, today)
 
