@@ -37,6 +37,7 @@ STATS_DAYS = 90
 READS_LOG = ".reads.log"
 FILENAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)+\.md$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+YAML_SPECIAL_START = tuple("[]{}#&*!|>%@`\"',")
 
 
 def default_root() -> Path:
@@ -96,6 +97,18 @@ def _parse_date(value: str | None) -> date | None:
         return None
 
 
+def _plain_yaml(value: str) -> bool:
+    """True when an unquoted value parses as the same plain YAML string (Obsidian, GitHub)."""
+    return not (
+        ": " in value
+        or " #" in value
+        or value.endswith(":")
+        or value.startswith(YAML_SPECIAL_START)
+        or value.startswith(("- ", "? "))
+        or value in ("-", "?")
+    )
+
+
 def lint_note(note: Note, today: date) -> list[Issue]:
     rel = f"notes/{note.path.name}"
     issues: list[Issue] = []
@@ -103,13 +116,15 @@ def lint_note(note: Note, today: date) -> list[Issue]:
     def error(message: str) -> None:
         issues.append(Issue("ERROR", rel, message))
 
-    meta = note.meta
+    for field in note.meta:
+        if field not in ALLOWED_FIELDS:
+            error(f"unknown field: {field}")
+    meta = {key: value for key, value in note.meta.items() if value}
     for field in ALLOWED_FIELDS:
         if field not in meta:
             error(f"missing field: {field}")
-    for field in meta:
-        if field not in ALLOWED_FIELDS:
-            error(f"unknown field: {field}")
+        elif not _plain_yaml(meta[field]):
+            error(f"{field} is not plain YAML (avoid ': ', ' #', a trailing ':' and a leading special character)")
 
     type_ = meta.get("type")
     if type_ is not None and type_ not in ALLOWED_TYPES:

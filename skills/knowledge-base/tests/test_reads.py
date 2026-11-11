@@ -103,6 +103,10 @@ class ReadsTest(unittest.TestCase):
         entry = config["hooks"]["PostToolUse"][0]
         return entry["matcher"], entry["hooks"][0]["command"]
 
+    def test_hook_runs_async(self):
+        config = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))
+        self.assertIs(config["hooks"]["PostToolUse"][0]["hooks"][0].get("async"), True)
+
     def test_hooks_json_points_to_script(self):
         matcher, command = self.hook()
         self.assertEqual(matcher, "Read")

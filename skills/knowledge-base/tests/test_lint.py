@@ -143,6 +143,23 @@ class LintTest(unittest.TestCase):
         self.write(newline="\r\n", bom=True)
         self.assertEqual(self.issues(), [])
 
+    def test_empty_value_counts_as_missing(self):
+        self.write(meta={"when": "", "applies": ""})
+        issues = self.issues()
+        self.assertIssue("ERROR", "missing field: when", issues)
+        self.assertIssue("ERROR", "missing field: applies", issues)
+
+    def test_yaml_unsafe_values(self):
+        for value in ("wybór: A czy B", "Redis # cache", "`pg_advisory_lock` za PgBouncerem", "- lista", "na końcu:"):
+            with self.subTest(value=value):
+                path = self.write(meta={"when": value})
+                self.assertIssue("ERROR", "when is not plain YAML")
+                path.unlink()
+
+    def test_yaml_safe_values_with_colons_ok(self):
+        self.write(meta={"applies": "PG 16, https://example.com, 10:30, pool_mode=transaction"})
+        self.assertEqual(self.issues(), [])
+
     def test_colon_in_value(self):
         path = self.write(meta={"when": "wybór: A czy B"})
         self.assertEqual(kb.parse_note(path).meta["when"], "wybór: A czy B")

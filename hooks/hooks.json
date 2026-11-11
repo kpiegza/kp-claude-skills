@@ -8,7 +8,8 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/knowledge-base/scripts/knowledge_base.py\" log-read",
-            "timeout": 5
+            "timeout": 5,
+            "async": true
           }
         ]
       }
