@@ -1,0 +1,18 @@
+{
+  "description": "kp:knowledge-base: log reads of knowledge base notes",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/knowledge-base/scripts/knowledge_base.py\" log-read",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
