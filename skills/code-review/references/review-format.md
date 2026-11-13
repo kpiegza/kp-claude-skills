@@ -7,9 +7,10 @@ Jedno podsumowanie na runde, nie komentarze inline. Na GitHub po angielsku, w tr
 - Sekcja pojawia sie tylko, gdy ma tresc. Bez wstepu, bez sekcji "co jest dobrze", bez stopek.
 - **Checkbox `- [ ]` = do zrobienia w tym PR** (werdykt THIS-PR). Wszystko inne to zwykle punkty bez checkboxa.
 - Punkt: **pogrubiony tytul** (`plik` albo `plik:linia`): mechanizm, skutek, poprawka. 2-4 zdania. Snippet w bloku kodu tylko wtedy, gdy jest poprawka.
-- 3-5 checkboxow na runde. Sedzia laczy punkty o tym samym mechanizmie; gdy nadal jest ich wiecej, pokazujesz wszystkie, posortowane po skutku.
-- Werdykt -> sekcja: THIS-PR -> "Worth fixing in this PR"; FOLLOW-UP -> "Follow-up (<KEY>)"; NICE-TO-HAVE i SCOPE -> "Nice-to-have (can be a separate PR)"; NOT-COVERED -> "Not covered"; JIRA -> "Jira". SCOPE, ktory autor ma uzasadnic w opisie PR, moze byc checkboxem.
-- Napiecie z wybrana przez usera opcja -> pierwsza sekcja z tytulem napiecia, zbudowana z `{D}/decision-{T}.md` ("**Decision:**", "Why:", checkboxy tego PR, follow-up drugiego komponentu). Napiecie bez decyzji -> punkt "Open question" w "Not covered".
+- Checkboxy polaczone po mechanizmie, posortowane po skutku. Najwyzej 3 nice-to-have i 3 punkty "Not covered".
+- Werdykt -> sekcja: THIS-PR -> "Worth fixing in this PR"; FOLLOW-UP -> "Follow-up (<KEY>)"; NICE-TO-HAVE i funkcjonalnosc DODATKOWA -> "Nice-to-have (can be a separate PR)"; NOT-COVERED -> "Not covered"; rozjazd z AC zmieniajacy zachowanie -> "Jira". Funkcjonalnosc DODATKOWA, ktora autor ma uzasadnic w opisie PR, moze byc checkboxem.
+- Stan taska w Jirze i braki w opisie PR nie ida do review; mowisz o nich userowi w czacie.
+- Napiecie z wybrana przez usera opcja -> pierwsza sekcja z tytulem napiecia ("**Decision:**", "Why:", checkboxy tego PR, follow-up drugiego komponentu). Napiecie bez decyzji -> punkt "Open question" w "Not covered".
 
 ## Pierwsze review (GitHub, EN)
 
@@ -41,7 +42,7 @@ Why: <concrete failure path>.
 - <accepted risk>: <why acceptable now>. Mitigation: <alert / task / doc>.
 
 ### Jira
-- <KEY> AC <n> says "<quote>", the PR <does X> (agreed in this review). Update the AC.
+- <KEY> AC <n> says "<quote>", the PR <does X>. <Update the AC, because ... | Change the PR: ... | Either confirm <what, with whom> and update the AC, or <change in the PR>>.
 ```
 
 Bez napiecia: pomijasz pierwsza sekcje, a "Remaining review points" zamieniasz na "## Review".
